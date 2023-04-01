@@ -1,12 +1,14 @@
 use crate::rocket::serde::{Deserialize, Serialize};
+use mongodb::bson::{oid::ObjectId, DateTime};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(crate = "rocket::serde")]
 pub struct User {
-    id: String,
-    email: String,
-    password: String,
-    logins: u64,
+    pub _id: Option<ObjectId>,
+    pub email: String,
+    pub password: String,
+    pub creation: Option<DateTime>,
+    pub requests: Option<u64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -14,17 +16,6 @@ pub struct User {
 pub struct Users {
     pub users: Vec<User>,
     size: usize
-}
-
-impl User {
-    pub fn new(id: String, email: String, password: String) -> Self {
-        Self {
-            id,
-            email,
-            password,
-            logins: 1,
-        }
-    }
 }
 
 impl Users {

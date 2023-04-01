@@ -1,7 +1,8 @@
-use futures::stream::{StreamExt};
+use futures::stream::StreamExt;
 use mongodb::{
+    bson::{doc, oid::ObjectId, DateTime},
     error::Error,
-    options::{ClientOptions, ServerAddress, Credential},
+    options::{ClientOptions, Credential, ServerAddress},
     Client, Collection,
 };
 
@@ -17,8 +18,14 @@ impl UserRepository {
             host: String::from("localhost"),
             port: Some(27017),
         };
-        let credentials = Credential::builder().username(String::from("root")).password(String::from("example")).build();
-        let options = ClientOptions::builder().hosts(vec![address]).credential(credentials).build();
+        let credentials = Credential::builder()
+            .username(String::from("root"))
+            .password(String::from("example"))
+            .build();
+        let options = ClientOptions::builder()
+            .hosts(vec![address])
+            .credential(credentials)
+            .build();
 
         let client = Client::with_options(options).unwrap();
         let database = client.database("rocket");
@@ -39,7 +46,21 @@ impl UserRepository {
         }
     }
 
+    pub async fn get_one(&self, id: ObjectId) -> Result<Option<User>, Error> {
+        self.collection.find_one(Some(doc! {"_id": id}), None).await
+    }
+
     pub async fn put(&self, user: User) -> Result<User, Error> {
-        self.collection.insert_one(user.clone(), None).await.map(| _ | user)
+        let created = User {
+            _id: Some(ObjectId::new()),
+            creation: Some(DateTime::now()),
+            requests: Some(1),
+            ..user
+        };
+
+        self.collection
+            .insert_one(created.clone(), None)
+            .await
+            .map(|_| created)
     }
 }
