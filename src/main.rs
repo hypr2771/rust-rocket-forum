@@ -9,6 +9,8 @@ use rocket::response::status::Custom;
 use rocket::serde::json::Json;
 use rocket::State;
 
+use crate::guards::api_key::ApiKey;
+use crate::guards::authorization::Authorization;
 use crate::projections::api_errors::ApiError;
 use crate::projections::topics::{Topic, Topics};
 //use crate::guards::api_key::ApiKey;
@@ -19,7 +21,7 @@ mod projections;
 mod repositories;
 
 #[get("/users", format = "json")]
-async fn get_users(repository: &State<UserRepository>) -> Result<Custom<Json<Users>>, ApiError> {
+async fn get_users(repository: &State<UserRepository>, _authorization: Authorization, _api_key: ApiKey) -> Result<Custom<Json<Users>>, ApiError> {
     let result = repository.get().await;
 
     match result {

@@ -6,7 +6,7 @@ use mongodb::{
     Client, Collection,
 };
 
-use crate::projections::users::User;
+use crate::projections::users::{User, Role};
 
 pub struct UserRepository {
     collection: Collection<User>,
@@ -50,11 +50,16 @@ impl UserRepository {
         self.collection.find_one(Some(doc! {"_id": id}), None).await
     }
 
+    pub async fn get_one_by_mail(&self, email: String) -> Result<Option<User>, Error> {
+        self.collection.find_one(Some(doc! {"email": email}), None).await
+    }
+
     pub async fn put(&self, user: User) -> Result<User, Error> {
         let created = User {
             _id: Some(ObjectId::new()),
             creation: Some(DateTime::now()),
             requests: Some(1),
+            role: Some(Role::Khey),
             ..user
         };
 
