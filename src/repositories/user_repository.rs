@@ -46,7 +46,7 @@ impl UserRepository {
         }
     }
 
-    pub async fn get_one(&self, id: ObjectId) -> Result<Option<User>, Error> {
+    pub async fn _get_one(&self, id: ObjectId) -> Result<Option<User>, Error> {
         self.collection.find_one(Some(doc! {"_id": id}), None).await
     }
 

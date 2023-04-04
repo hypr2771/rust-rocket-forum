@@ -13,4 +13,6 @@ pub enum ApiError {
     TopicNotCreated(String),
     #[response(status = 500)]
     TopicsNotResolved(String),
+    #[response(status = 500)]
+    MessageNotCreated(String),
 }

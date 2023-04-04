@@ -2,7 +2,9 @@
 extern crate rocket;
 
 use mongodb::bson::oid::ObjectId;
+use projections::topics::Message;
 use projections::users::Users;
+use repositories::message_repository::MessageRepository;
 use repositories::topic_repository::TopicRepository;
 use repositories::user_repository::UserRepository;
 use rocket::http::Status;
@@ -13,7 +15,7 @@ use rocket::State;
 use crate::guards::api_key::ApiKey;
 use crate::guards::authorization::Authorization;
 use crate::projections::api_errors::ApiError;
-use crate::projections::topics::{Topic, Topics};
+use crate::projections::topics::{PagedTopic, Topic, Topics};
 //use crate::guards::api_key::ApiKey;
 use crate::projections::users::User;
 
@@ -82,7 +84,7 @@ async fn create_topic(
     let author = authorization.user._id;
 
     // Override author with authorized one
-    let created = topic_repository.put(Topic{author, ..inner}).await;
+    let created = topic_repository.put(Topic { author, ..inner }).await;
 
     match created {
         Ok(topic) => Ok(Custom(Status::Created, Json(topic))),
@@ -96,14 +98,24 @@ async fn create_topic(
 #[get("/topics/<topic>")]
 async fn get_topic(
     topic: &str,
-    repository: &State<TopicRepository>,
-) -> Result<Custom<Json<Topic>>, ApiError> {
+    topic_repository: &State<TopicRepository>,
+    message_repository: &State<MessageRepository>,
+) -> Result<Custom<Json<PagedTopic>>, ApiError> {
     let topic_id = ObjectId::parse_str(topic);
 
-    let result = repository.get_one(topic_id.ok().unwrap()).await;
+    let result = topic_repository.get_one(topic_id.ok().unwrap()).await;
 
     match result {
-        Ok(Some(topic)) => Ok(Custom(Status::Ok, Json(topic))),
+        Ok(Some(topic)) => {
+            let messages = message_repository.get(topic._id.unwrap()).await;
+
+            let messages = match messages {
+                Ok(messages) => messages,
+                Err(_) => vec![],
+            };
+
+            Ok(Custom(Status::Ok, Json(topic.paged(messages))))
+        }
         Ok(None) => {
             println!("Topic {} does not exists", topic);
             Err(ApiError::TopicNotCreated(format!(
@@ -118,16 +130,62 @@ async fn get_topic(
     }
 }
 
+#[put("/topics/<topic>/messages", format = "json", data = "<message>")]
+async fn create_message(
+    topic: String,
+    message: Json<Message>,
+    topic_repository: &State<TopicRepository>,
+    message_repository: &State<MessageRepository>,
+    authorization: Authorization,
+) -> Result<Custom<Json<Message>>, ApiError> {
+    let resolved_topic = topic_repository
+        .get_one(ObjectId::parse_str(topic.clone()).unwrap())
+        .await;
+
+    match resolved_topic {
+        Ok(Some(resolved_topic)) => {
+            let created = message_repository
+                .put(Message {
+                    author: authorization.user._id,
+                    topic: resolved_topic._id,
+                    ..message.into_inner()
+                })
+                .await;
+
+            match created {
+                Ok(created) => Ok(Custom(Status::Ok, Json(created))),
+                Err(error) => {
+                    println!("Received an error when creating message {}", error);
+                    Err(ApiError::MessageNotCreated(format!("{}", error)))
+                }
+            }
+        }
+        Ok(None) => {
+            println!("Topic {} does not exists", topic);
+            Err(ApiError::TopicsNotResolved(format!(
+                "Topic {} does not exists",
+                topic
+            )))
+        }
+        Err(error) => {
+            println!("Received an error when creating message {}", error);
+            Err(ApiError::MessageNotCreated(format!("{}", error)))
+        }
+    }
+}
+
 #[launch]
 async fn rocket() -> _ {
     let user_repository = UserRepository::init();
     let topic_repository = TopicRepository::init();
+    let message_repository = MessageRepository::init();
 
     rocket::build()
         .manage(user_repository)
         .manage(topic_repository)
+        .manage(message_repository)
         .mount(
             "/",
-            routes![get_users, create_user, get_topics, create_topic, get_topic],
+            routes![get_users, create_user, get_topics, create_topic, get_topic, create_message],
         )
 }
