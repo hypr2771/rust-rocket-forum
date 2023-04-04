@@ -47,25 +47,25 @@ impl<'r> FromRequest<'r> for Authorization {
                                                     Outcome::Success(Authorization { user })
                                                 }
                                                 _ => Outcome::Failure((
-                                                    Status::InternalServerError,
+                                                    Status::Unauthorized,
                                                     AuthorizationError::Invalid,
                                                 )),
                                             }
                                         } else {
                                             Outcome::Failure((
-                                                Status::InternalServerError,
+                                                Status::Unauthorized,
                                                 AuthorizationError::Invalid,
                                             ))
                                         }
                                     }
                                     _ => Outcome::Failure((
-                                        Status::InternalServerError,
+                                        Status::Unauthorized,
                                         AuthorizationError::Invalid,
                                     )),
                                 }
                             }
                             None => Outcome::Failure((
-                                Status::InternalServerError,
+                                Status::Unauthorized,
                                 AuthorizationError::Invalid,
                             )),
                         }
