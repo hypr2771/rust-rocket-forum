@@ -33,55 +33,35 @@ impl<'r> FromRequest<'r> for Authorization {
                                     .decode(authorization.replace("Basic ", ""))
                                     .map(|decoded| String::from_utf8(decoded));
                                 match decoded_result {
-                                    Ok(decoded) => match decoded {
-                                        Ok(decoded) => {
-                                            println!("{}", decoded);
+                                    Ok(Ok(decoded)) => {
+                                        println!("{}", decoded);
 
-                                            // Major flaw today: mails are used as login but those can contains : character. If they do, this will fail
-                                            if let Some((mail, password)) = decoded.split_once(":")
-                                            {
-                                                let user = repository
-                                                    .get_one_by_mail(String::from(mail))
-                                                    .await;
+                                        // Major flaw today: mails are used as login but those can contains : character. If they do, this will fail
+                                        if let Some((mail, password)) = decoded.split_once(":") {
+                                            let user = repository
+                                                .get_one_by_mail(String::from(mail))
+                                                .await;
 
-                                                match user {
-                                                    Ok(user) => match user {
-                                                        Some(user) if user.password == password => {
-                                                            Outcome::Success(Authorization { user })
-                                                        }
-                                                        Some(_) => Outcome::Failure((
-                                                            Status::InternalServerError,
-                                                            AuthorizationError::Invalid,
-                                                        )),
-                                                        None => Outcome::Failure((
-                                                            Status::InternalServerError,
-                                                            AuthorizationError::Invalid,
-                                                        )),
-                                                    },
-                                                    Err(_) => Outcome::Failure((
-                                                        Status::InternalServerError,
-                                                        AuthorizationError::Invalid,
-                                                    )),
+                                            match user {
+                                                Ok(Some(user)) if user.password == password => {
+                                                    Outcome::Success(Authorization { user })
                                                 }
-                                            } else {
-                                                Outcome::Failure((
+                                                _ => Outcome::Failure((
                                                     Status::InternalServerError,
                                                     AuthorizationError::Invalid,
-                                                ))
+                                                )),
                                             }
+                                        } else {
+                                            Outcome::Failure((
+                                                Status::InternalServerError,
+                                                AuthorizationError::Invalid,
+                                            ))
                                         }
-                                        Err(_) => Outcome::Failure((
-                                            Status::InternalServerError,
-                                            AuthorizationError::Invalid,
-                                        )),
-                                    },
-                                    Err(e) => {
-                                        eprintln!("{e}");
-                                        Outcome::Failure((
-                                            Status::InternalServerError,
-                                            AuthorizationError::Invalid,
-                                        ))
                                     }
+                                    _ => Outcome::Failure((
+                                        Status::InternalServerError,
+                                        AuthorizationError::Invalid,
+                                    )),
                                 }
                             }
                             None => Outcome::Failure((
