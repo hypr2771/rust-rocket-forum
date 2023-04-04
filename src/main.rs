@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate rocket;
 
+use mongodb::bson::oid::ObjectId;
 use projections::users::Users;
 use repositories::topic_repository::TopicRepository;
 use repositories::user_repository::UserRepository;
@@ -21,7 +22,10 @@ mod projections;
 mod repositories;
 
 #[get("/users", format = "json")]
-async fn get_users(repository: &State<UserRepository>, _authorization: Authorization, _api_key: ApiKey) -> Result<Custom<Json<Users>>, ApiError> {
+async fn get_users(
+    repository: &State<UserRepository>,
+    _api_key: ApiKey,
+) -> Result<Custom<Json<Users>>, ApiError> {
     let result = repository.get().await;
 
     match result {
@@ -70,33 +74,47 @@ async fn get_topics(repository: &State<TopicRepository>) -> Result<Custom<Json<T
 async fn create_topic(
     topic: Json<Topic>,
     topic_repository: &State<TopicRepository>,
-    user_repository: &State<UserRepository>,
+    authorization: Authorization,
 ) -> Result<Custom<Json<Topic>>, ApiError> {
     let inner = topic.into_inner();
 
-    match user_repository.get_one(inner.author).await {
-        Ok(Some(_)) => {
-            let created = topic_repository.put(inner.clone()).await;
+    // Can unwrap because Authorization guard passed => we necessarily have a user
+    let author = authorization.user._id;
 
-            match created {
-                Ok(topic) => Ok(Custom(Status::Created, Json(topic))),
-                Err(error) => {
-                    println!("Received an error when trying to create topic {}", error);
-                    Err(ApiError::TopicNotCreated(format!("{}", error)))
-                }
-            }
+    // Override author with authorized one
+    let created = topic_repository.put(Topic{author, ..inner}).await;
+
+    match created {
+        Ok(topic) => Ok(Custom(Status::Created, Json(topic))),
+        Err(error) => {
+            println!("Received an error when trying to create topic {}", error);
+            Err(ApiError::TopicNotCreated(format!("{}", error)))
         }
+    }
+}
+
+#[get("/topics/<topic>")]
+async fn get_topic(
+    topic: &str,
+    repository: &State<TopicRepository>,
+) -> Result<Custom<Json<Topic>>, ApiError> {
+    let topic_id = ObjectId::parse_str(topic);
+
+    let result = repository.get_one(topic_id.ok().unwrap()).await;
+
+    match result {
+        Ok(Some(topic)) => Ok(Custom(Status::Ok, Json(topic))),
         Ok(None) => {
-            println!("User {} does not exists", inner.author);
-            Err(ApiError::UserNotFound(format!(
-                "User {} does not exists",
-                inner.author
+            println!("Topic {} does not exists", topic);
+            Err(ApiError::TopicNotCreated(format!(
+                "Topic {} does not exists",
+                topic
             )))
         }
         Err(error) => {
-            println!("Received an error when trying to get all users {}", error);
-            Err(ApiError::UsersNotResolved(format!("{}", error)))
-        },
+            println!("Received an error when trying to get all topics {}", error);
+            Err(ApiError::TopicsNotResolved(format!("{}", error)))
+        }
     }
 }
 
@@ -110,6 +128,6 @@ async fn rocket() -> _ {
         .manage(topic_repository)
         .mount(
             "/",
-            routes![get_users, create_user, get_topics, create_topic],
+            routes![get_users, create_user, get_topics, create_topic, get_topic],
         )
 }

@@ -1,6 +1,6 @@
 use futures::stream::StreamExt;
 use mongodb::{
-    bson::{oid::ObjectId, DateTime},
+    bson::{oid::ObjectId, DateTime, doc},
     error::Error,
     options::{ClientOptions, Credential, ServerAddress},
     Client, Collection,
@@ -46,6 +46,10 @@ impl TopicRepository {
             }
             Err(error) => Err(error),
         }
+    }
+
+    pub async fn get_one(&self, id: ObjectId) -> Result<Option<Topic>, Error> {
+        self.collection.find_one(doc!{"_id": id}, None).await
     }
 
     pub async fn put(&self, topic: Topic) -> Result<Topic, Error> {

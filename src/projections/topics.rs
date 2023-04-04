@@ -6,7 +6,7 @@ use mongodb::bson::{oid::ObjectId, DateTime};
 pub struct Topic {
     pub _id: Option<ObjectId>,
     pub title: String,
-    pub author: ObjectId,
+    pub author: Option<ObjectId>,
     pub date: Option<DateTime>,
 }
 
