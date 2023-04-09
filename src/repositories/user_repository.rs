@@ -6,7 +6,7 @@ use mongodb::{
     Client, Collection,
 };
 
-use crate::projections::users::{User, Role};
+use crate::projections::users::{Role, User};
 
 pub struct UserRepository {
     collection: Collection<User>,
@@ -35,15 +35,10 @@ impl UserRepository {
     }
 
     pub async fn get(&self) -> Result<Vec<User>, Error> {
-        let result = self.collection.find(None, None).await;
+        let users = self.collection.find(None, None).await?;
 
-        match result {
-            Ok(cursor) => {
-                let result: Vec<Result<User, _>> = cursor.collect().await;
-                Ok(result.into_iter().map(|user| user.unwrap()).collect())
-            }
-            Err(error) => Err(error),
-        }
+        let collected: Vec<Result<User, _>> = users.collect().await;
+        Ok(collected.into_iter().map(|user| user.unwrap()).collect())
     }
 
     pub async fn _get_one(&self, id: ObjectId) -> Result<Option<User>, Error> {
@@ -51,7 +46,9 @@ impl UserRepository {
     }
 
     pub async fn get_one_by_mail(&self, email: String) -> Result<Option<User>, Error> {
-        self.collection.find_one(Some(doc! {"email": email}), None).await
+        self.collection
+            .find_one(Some(doc! {"email": email}), None)
+            .await
     }
 
     pub async fn put(&self, user: User) -> Result<User, Error> {

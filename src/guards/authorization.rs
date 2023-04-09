@@ -35,6 +35,7 @@ impl<'r> FromRequest<'r> for Authorization {
                                 match decoded_result {
                                     Ok(Ok(decoded)) => {
                                         println!("{}", decoded);
+                                        // AnyHow pour reduire le nombre de match arm qui renvoie la meme valeur (erreur) + utilisation des ?
 
                                         // Major flaw today: mails are used as login but those can contains : character. If they do, this will fail
                                         if let Some((mail, password)) = decoded.split_once(":") {
@@ -70,13 +71,10 @@ impl<'r> FromRequest<'r> for Authorization {
                             )),
                         }
                     })
-                    .await;
+                    .await
+                    .clone();
 
-                match result {
-                    Outcome::Success(a) => Outcome::Success(a.clone()),
-                    Outcome::Failure(f) => Outcome::Failure(*f),
-                    Outcome::Forward(fw) => Outcome::Forward(*fw),
-                }
+                result
             }
         }
     }

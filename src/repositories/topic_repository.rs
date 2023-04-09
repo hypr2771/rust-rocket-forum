@@ -1,6 +1,6 @@
 use futures::stream::StreamExt;
 use mongodb::{
-    bson::{oid::ObjectId, DateTime, doc},
+    bson::{doc, oid::ObjectId, DateTime},
     error::Error,
     options::{ClientOptions, Credential, ServerAddress},
     Client, Collection,
@@ -37,19 +37,14 @@ impl TopicRepository {
     }
 
     pub async fn get(&self) -> Result<Vec<Topic>, Error> {
-        let topics = self.collection.find(None, None).await;
+        let topics = self.collection.find(None, None).await?;
 
-        match topics {
-            Ok(cursor) => {
-                let collected: Vec<Result<Topic, Error>> = cursor.collect().await;
-                Ok(collected.into_iter().map(|topic| topic.unwrap()).collect())
-            }
-            Err(error) => Err(error),
-        }
+        let collected: Vec<Result<Topic, Error>> = topics.collect().await;
+        Ok(collected.into_iter().map(|topic| topic.unwrap()).collect())
     }
 
     pub async fn get_one(&self, id: ObjectId) -> Result<Option<Topic>, Error> {
-        self.collection.find_one(doc!{"_id": id}, None).await
+        self.collection.find_one(doc! {"_id": id}, None).await
     }
 
     pub async fn put(&self, topic: Topic) -> Result<Topic, Error> {

@@ -40,19 +40,14 @@ impl MessageRepository {
         let messages = self
             .collection
             .find(Some(doc! {"topic": topic}), None)
-            .await;
+            .await?;
 
-        match messages {
-            Ok(messages) => {
-                let collected: Vec<Result<Message, Error>> = messages.collect().await;
+        let collected: Vec<Result<Message, Error>> = messages.collect().await;
 
-                Ok(collected
-                    .into_iter()
-                    .map(|message| message.unwrap())
-                    .collect())
-            }
-            Err(error) => Err(error),
-        }
+        Ok(collected
+            .into_iter()
+            .map(|message| message.unwrap())
+            .collect())
     }
 
     pub async fn put(&self, message: Message) -> Result<Message, Error> {
